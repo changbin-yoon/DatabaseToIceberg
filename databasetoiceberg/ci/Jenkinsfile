@@ -1,0 +1,78 @@
+pipeline {
+    agent any
+
+    environment {
+        MAVEN_IMAGE = 'maven:3.9.8-eclipse-temurin-17'
+        DOCKER_IMAGE = "databasetoiceberg:${env.BUILD_NUMBER ?: 'local'}"
+        // Optional: set DOCKER_REGISTRY and credential IDs in your Jenkins job if pushing
+        // DOCKER_REGISTRY = ''
+        // DOCKER_CREDENTIALS_ID = 'docker-credentials'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Build (package)') {
+            agent {
+                docker {
+                    image "${env.MAVEN_IMAGE}"
+                    args '-v $HOME/.m2:/root/.m2'
+                }
+            }
+            steps {
+                sh 'mvn -B -DskipTests clean package'
+            }
+        }
+
+        stage('Unit tests') {
+            agent {
+                docker {
+                    image "${env.MAVEN_IMAGE}"
+                    args '-v $HOME/.m2:/root/.m2'
+                }
+            }
+            steps {
+                sh 'mvn -B test'
+            }
+            post {
+                always {
+                    junit 'target/surefire-reports/*.xml'
+                }
+            }
+        }
+
+        stage('Build Docker image') {
+            steps {
+                script {
+                    docker.build("${env.DOCKER_IMAGE}", "-f docker/Dockerfile .")
+                }
+            }
+        }
+
+        stage('Publish image (optional)') {
+            when {
+                expression { env.DOCKER_REGISTRY && env.DOCKER_CREDENTIALS_ID }
+            }
+            steps {
+                script {
+                    withCredentials([usernamePassword(credentialsId: "${env.DOCKER_CREDENTIALS_ID}", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                        sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin $DOCKER_REGISTRY'
+                        sh "docker tag ${env.DOCKER_IMAGE} ${env.DOCKER_REGISTRY}/${env.DOCKER_IMAGE}"
+                        sh "docker push ${env.DOCKER_REGISTRY}/${env.DOCKER_IMAGE}"
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
+            cleanWs()
+        }
+    }
+}

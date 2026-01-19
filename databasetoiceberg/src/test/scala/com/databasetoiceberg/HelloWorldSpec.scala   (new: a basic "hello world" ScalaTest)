@@ -1,0 +1,8 @@
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
+
+class HelloWorldSpec extends AnyFlatSpec with Matchers {
+  "The application" should "return true for a simple test" in {
+    assert(true)
+  }
+}

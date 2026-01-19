@@ -1,0 +1,49 @@
+apiVersion: sparkoperator.k8s.io/v1beta2
+kind: SparkApplication
+metadata:
+  name: databasetoiceberg-app
+  namespace: default
+spec:
+  type: Scala
+  mode: cluster
+  image: your-docker-image:latest
+  imagePullPolicy: Always
+  mainClass: com.databasetoiceberg.common.SparkApp
+  mainApplicationFile: local:///opt/spark/jars/your-jar-file.jar
+  sparkConf:
+    "spark.executor.instances": "2"
+    "spark.executor.memory": "2g"
+    "spark.driver.memory": "1g"
+  arguments:
+    - --db-type
+    - <database_type>
+    - --db-host
+    - <database_host>
+    - --db-port
+    - <database_port>
+    - --db-name
+    - <database_name>
+    - --db-user
+    - <database_user>
+    - --db-password
+    - <database_password>
+    - --query
+    - <query>
+    - --minio-endpoint
+    - <minio_endpoint>
+    - --minio-access-key
+    - <minio_access_key>
+    - --minio-secret-key
+    - <minio_secret_key>
+    - --iceberg-table
+    - <iceberg_table_name>
+  restartPolicy:
+    type: OnFailure
+    retries: 3
+  driver:
+    cores: 1
+    memory: "1g"
+    serviceAccount: spark
+  executor:
+    cores: 1
+    memory: "2g"

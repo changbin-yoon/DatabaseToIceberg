@@ -1,0 +1,221 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+                             http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>com.databasetoiceberg</groupId>
+  <artifactId>databasetoiceberg</artifactId>
+  <version>0.1.0-SNAPSHOT</version>
+  <packaging>jar</packaging>
+
+  <properties>
+    <maven.compiler.source>17</maven.compiler.source>
+    <maven.compiler.target>17</maven.compiler.target>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+    <!-- Core versions -->
+    <scala.binary.version>2.13</scala.binary.version>
+    <scala.version>2.13.12</scala.version>
+
+    <spark.version>3.5.8</spark.version>
+    <hadoop.version>3.2.2</hadoop.version>
+    <iceberg.version>1.9.2</iceberg.version>
+    <hive.version>3.1.3</hive.version>
+
+    <!-- Clients -->
+    <minio.version>8.5.4</minio.version> <!-- update to latest if needed -->
+    <oracle.jdbc.version>21.9.0.0</oracle.jdbc.version> <!-- Oracle driver note below -->
+
+    <!-- Test -->
+    <scalatest.version>3.2.15</scalatest.version>
+
+    <!-- Shade final name -->
+    <finalName>${project.artifactId}-${project.version}-all</finalName>
+  </properties>
+
+  <dependencies>
+    <!-- Spark (provided - cluster should supply Spark) -->
+    <dependency>
+      <groupId>org.apache.spark</groupId>
+      <artifactId>spark-core_${scala.binary.version}</artifactId>
+      <version>${spark.version}</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.spark</groupId>
+      <artifactId>spark-sql_${scala.binary.version}</artifactId>
+      <version>${spark.version}</version>
+      <scope>provided</scope>
+    </dependency>
+
+    <!-- Iceberg Spark runtime for Spark 3.5 -->
+    <dependency>
+      <groupId>org.apache.iceberg</groupId>
+      <artifactId>iceberg-spark-runtime-3.5</artifactId>
+      <version>${iceberg.version}</version>
+      <!-- include in the fat jar (not provided) so Iceberg runtime is available to the job -->
+    </dependency>
+
+    <!-- Iceberg Hive metastore integration -->
+    <dependency>
+      <groupId>org.apache.iceberg</groupId>
+      <artifactId>iceberg-hive-metastore</artifactId>
+      <version>${iceberg.version}</version>
+    </dependency>
+
+    <!-- Hive metastore client (provided on cluster, but useful for compile) -->
+    <dependency>
+      <groupId>org.apache.hive</groupId>
+      <artifactId>hive-metastore</artifactId>
+      <version>${hive.version}</version>
+      <scope>provided</scope>
+    </dependency>
+
+    <!-- Hadoop (provided by cluster) -->
+    <dependency>
+      <groupId>org.apache.hadoop</groupId>
+      <artifactId>hadoop-client</artifactId>
+      <version>${hadoop.version}</version>
+      <scope>provided</scope>
+    </dependency>
+
+    <!-- MinIO Java client -->
+    <dependency>
+      <groupId>io.minio</groupId>
+      <artifactId>minio</artifactId>
+      <version>${minio.version}</version>
+    </dependency>
+
+    <!-- Database drivers -->
+    <!-- PostgreSQL, MySQL, MSSQL available from Maven Central -->
+    <dependency>
+      <groupId>org.postgresql</groupId>
+      <artifactId>postgresql</artifactId>
+      <version>42.6.0</version>
+    </dependency>
+
+    <dependency>
+      <groupId>mysql</groupId>
+      <artifactId>mysql-connector-java</artifactId>
+      <version>8.1.0</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.microsoft.sqlserver</groupId>
+      <artifactId>mssql-jdbc</artifactId>
+      <version>12.2.0.jre17</version>
+    </dependency>
+
+    <!-- Oracle JDBC: Oracle artifacts often require manual install or use Oracle's Maven repo.
+         Recommended: use ojdbc11 for Java 17 / install into local Nexus if necessary.
+         Example coordinate (may not be on Maven Central):
+         <groupId>com.oracle.database.jdbc</groupId>
+         <artifactId>ojdbc11</artifactId>
+         <version>${oracle.jdbc.version}</version>
+    -->
+    <!-- Uncomment and adjust if you have the artifact available in your repo -->
+    <!--
+    <dependency>
+      <groupId>com.oracle.database.jdbc</groupId>
+      <artifactId>ojdbc11</artifactId>
+      <version>${oracle.jdbc.version}</version>
+    </dependency>
+    -->
+
+    <!-- Scala library (for Scala sources) -->
+    <dependency>
+      <groupId>org.scala-lang</groupId>
+      <artifactId>scala-library</artifactId>
+      <version>${scala.version}</version>
+    </dependency>
+
+    <!-- Testing -->
+    <dependency>
+      <groupId>org.scalatest</groupId>
+      <artifactId>scalatest_${scala.binary.version}</artifactId>
+      <version>${scalatest.version}</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <!-- Compiler -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.11.0</version>
+        <configuration>
+          <source>${maven.compiler.source}</source>
+          <target>${maven.compiler.target}</target>
+        </configuration>
+      </plugin>
+
+      <!-- Scala support -->
+      <plugin>
+        <groupId>net.alchim31.maven</groupId>
+        <artifactId>scala-maven-plugin</artifactId>
+        <version>4.7.1</version>
+        <executions>
+          <execution>
+            <id>compile-scala</id>
+            <goals>
+              <goal>compile</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>test-compile-scala</id>
+            <goals>
+              <goal>testCompile</goal>
+            </goals>
+          </execution>
+        </executions>
+        <configuration>
+          <scalaVersion>${scala.version}</scalaVersion>
+        </configuration>
+      </plugin>
+
+      <!-- Shade plugin to produce a single fat jar for deployment -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-shade-plugin</artifactId>
+        <version>3.5.0</version>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals><goal>shade</goal></goals>
+            <configuration>
+              <createDependencyReducedPom>true</createDependencyReducedPom>
+              <finalName>${finalName}</finalName>
+              <filters>
+                <!-- Exclude Spark & Hadoop libs to avoid classpath conflicts with cluster -->
+                <filter>
+                  <artifact>*:*</artifact>
+                  <excludes>
+                    <exclude>org/apache/spark/**</exclude>
+                    <exclude>org/apache/hadoop/**</exclude>
+                    <exclude>org/apache/hive/**</exclude>
+                  </excludes>
+                </filter>
+              </filters>
+              <transformers>
+                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                  <mainClass>com.databasetoiceberg.common.SparkApp</mainClass>
+                </transformer>
+              </transformers>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!-- Surefire for unit tests -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.1.2</version>
+      </plugin>
+    </plugins>
+  </build>
+</project>
